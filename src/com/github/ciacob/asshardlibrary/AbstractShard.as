@@ -140,10 +140,35 @@ package com.github.ciacob.asshardlibrary {
         }
 
         public function addChildAt(child:IShard, atIndex:int):void {
-            if (isFlat || child == null || child === this) {
+
+            // Check we're allowed to have children, and we have a valid child.
+            if (isFlat || child == null) {
                 return;
             }
 
+            // Silently normalize the target index.
+            if (atIndex < 0) {
+                atIndex = 0;
+            } else {
+                const numChildren : uint = findNumChildren();
+                if (atIndex > numChildren) {
+                    atIndex = numChildren;
+                }
+            }
+
+            // Prevent circular ancestry.
+            // We prevent adding parent or self or any ancestor as a child.
+            // However, adopting "cousins" is allowed, and so is adopting any childless
+            // "uncles".
+            var current:IShard = this;
+            while (current) {
+                if (current === child) {
+                    return;
+                }
+                current = current.parent;
+            }
+
+            // Proceed with rewiring logic
             const oldParent:AbstractShard = child.parent as AbstractShard;
             if (oldParent) {
                 oldParent.unwireChild(child);
