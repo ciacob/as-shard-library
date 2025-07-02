@@ -2,10 +2,18 @@ package com.github.ciacob.asshardlibrary {
     import flash.utils.ByteArray;
     import flash.net.registerClassAlias;
     import flash.utils.getQualifiedClassName;
+    import flash.utils.getDefinitionByName;
 
     use namespace shard_internal;
 
     public class AbstractShard implements IShard {
+
+        /**
+         * String to use with the third argument of `importFrom()` to indicate that
+         * the import should fall back to the OOtB `Shard` class if any of the
+         * sub-classes being imported are not available.
+         */
+        protected static const OOB_FALLBACK:String = "oob_fallback";
 
         /**
          * Generates a v4-style UUID.
@@ -37,6 +45,90 @@ package com.github.ciacob.asshardlibrary {
         // -----------------------
         shard_internal static const registry:Object = {};
 
+        shard_internal function toPortableObject():Array {
+            const result:Array = [];
+
+            // Version
+            result.push(['version', formatVersion]);
+
+            // Fully qualified name
+            result.push(['fqn', getQualifiedClassName(this)]);
+
+            // Intrinsic
+            result.push(['intrinsic', ['isFlat', isFlat]]);
+
+            // Content (sorted)
+            const keys:Array = [];
+            for (var k:String in _content)
+                keys.push(k);
+            keys.sort();
+
+            const content:Array = [];
+            for each (k in keys) {
+                content.push([k, _content[k]]);
+            }
+            result.push(['content', content]);
+
+            // Children (recurse)
+            const children:Array = [];
+            var current:IShard = firstChild;
+            while (current) {
+                children.push(AbstractShard(current).toPortableObject());
+                current = current.next;
+            }
+            result.push(['children', children]);
+
+            return result;
+        }
+
+        shard_internal function fromPortableObject(data:Array):void {
+            empty();
+
+            var section:Object;
+            var contentBlock:Array;
+            var childrenBlock:Array;
+
+            for each (section in data) {
+                switch (section[0]) {
+                    case 'intrinsic':
+                        // Skip — isFlat is read-only at runtime.
+                        break;
+
+                    case 'content':
+                        contentBlock = section[1];
+                        for each (var pair:Array in contentBlock) {
+                            this.$set(pair[0], pair[1]);
+                        }
+                        break;
+
+                    case 'children':
+                        childrenBlock = section[1];
+                        for each (var childData:Array in childrenBlock) {
+                            var child:IShard;
+
+                            // Attempt to create via FQN (next line will fail if class is unavailable)
+                            var fqn:String = childData[1][1]; // second section is ['fqn', <name>]
+                            try {
+                                var cls:Class = Class(getDefinitionByName(fqn));
+                                child = new cls() as IShard;
+                            } catch (e:*) {
+                                if (_importFallbackPolicy === "oob_fallback") {
+                                    child = new Shard();
+                                } else {
+                                    throw new Error("Class not found: " + fqn);
+                                }
+                            }
+
+                            AbstractShard(child).fromPortableObject(childData);
+                            addChild(child);
+                        }
+                        break;
+                }
+            }
+        }
+
+
+
         // -----------------------
         // Identity
         // -----------------------
@@ -55,6 +147,7 @@ package com.github.ciacob.asshardlibrary {
         // Content
         // -----------------------
         protected var _content:Object = {};
+        protected var _importFallbackPolicy:String = null; // "oob_fallback" or null
 
         // -----------------------
         // Constructor
@@ -71,6 +164,10 @@ package com.github.ciacob.asshardlibrary {
 
             _id = makeUuid();
             registry[_id] = this;
+        }
+
+        public function get formatVersion():uint {
+            return 1;
         }
 
         // -----------------------
@@ -150,7 +247,7 @@ package com.github.ciacob.asshardlibrary {
             if (atIndex < 0) {
                 atIndex = 0;
             } else {
-                const numChildren : uint = findNumChildren();
+                const numChildren:uint = findNumChildren();
                 if (atIndex > numChildren) {
                     atIndex = numChildren;
                 }
@@ -416,12 +513,8 @@ package com.github.ciacob.asshardlibrary {
         }
 
         public function toSerialized():ByteArray {
-            const alias:String = "ro.ciacob.desktop.data.AbstractShard";
-            registerClassAlias(alias, AbstractShard);
-
             const b:ByteArray = new ByteArray();
-            b.writeObject(this);
-            b.position = 0;
+            b.writeObject(toPortableObject());
             b.compress();
             return b;
         }
@@ -430,28 +523,20 @@ package com.github.ciacob.asshardlibrary {
             empty();
 
             if (!format && content is ByteArray) {
+                _importFallbackPolicy = helpers[0]; // Optional fallback policy
                 const input:ByteArray = ByteArray(content);
                 input.uncompress();
                 input.position = 0;
 
-                const source:AbstractShard = input.readObject() as AbstractShard;
-                if (!source)
+                const data:Array = input.readObject() as Array;
+                if (!(data && data is Array))
                     return;
 
-                // Copy content
-                for (var key:String in source._content) {
-                    _content[key] = source._content[key];
-                }
-
-                // Deep-clone children (without reusing IDs)
-                var child:IShard = source.firstChild;
-                while (child) {
-                    addChild(child.clone(true));
-                    child = child.next;
-                }
+                fromPortableObject(data);
+                _importFallbackPolicy = null;
             }
 
-            // Otherwise, leave for subclasses to override
+            // Classes that override this method should call super.importFrom() first.
         }
 
         public function isSame(other:IShard):Boolean {
@@ -649,6 +734,44 @@ package com.github.ciacob.asshardlibrary {
 
         public function exportTo(format:String, ... helpers):* {
             throw new Error("AbstractShard does not support exportTo(). Please subclass and implement this method.");
+        }
+
+        /**
+         * Dumps the shard's structure and content to the console.
+         * @param indent The indentation string to use for nested structures.
+         */
+        public function dump(indent:String = ""):void {
+            trace(indent + "[Shard route=\"" + findRoute() + "\"]", getQualifiedClassName(this));
+
+            // Intrinsic
+            trace(indent + "  isFlat:", isFlat);
+
+            // Content
+            const keys:Array = [];
+            for (var key:String in _content) {
+                keys.push(key);
+            }
+            keys.sort();
+            if (keys.length > 0) {
+                trace(indent + "  content:");
+                for each (key in keys) {
+                    trace(indent + "    " + key + " =", _content[key]);
+                }
+            } else {
+                trace(indent + "  content: (empty)");
+            }
+
+            // Children
+            if (firstChild) {
+                trace(indent + "  children:");
+                var current:IShard = firstChild;
+                while (current) {
+                    AbstractShard(current).dump(indent + "    ");
+                    current = current.next;
+                }
+            } else {
+                trace(indent + "  children: (none)");
+            }
         }
 
     }

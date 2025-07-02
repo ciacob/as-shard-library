@@ -9,7 +9,7 @@ package com.github.ciacob.asshardlibrary {
      *
      * Notes:
      * 1. Implementors must have a no-arg constructor.
-     * 
+     *
      * 2. No internal caching intended; caller code should implement
      *    caching where it makes sense to do so, e.g., in loops.
      *
@@ -28,6 +28,12 @@ package com.github.ciacob.asshardlibrary {
         // -------------------------
         // Properties
         // -------------------------
+
+        /**
+         * Returns the serialization format version of this Shard instance.
+         * Subclasses can override this to signal schema upgrades.
+         */
+        function get formatVersion():uint;
 
         /**
          * Universally unique ID representing <this> element.
