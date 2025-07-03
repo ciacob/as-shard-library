@@ -1,6 +1,5 @@
 package com.github.ciacob.asshardlibrary {
     import flash.utils.ByteArray;
-    import flash.net.registerClassAlias;
     import flash.utils.getQualifiedClassName;
     import flash.utils.getDefinitionByName;
 
@@ -44,6 +43,8 @@ package com.github.ciacob.asshardlibrary {
         // Static central registry
         // -----------------------
         shard_internal static const registry:Object = {};
+
+        shard_internal var _content:Object = {};
 
         shard_internal function toPortableObject():Array {
             const result:Array = [];
@@ -146,7 +147,6 @@ package com.github.ciacob.asshardlibrary {
         // -----------------------
         // Content
         // -----------------------
-        protected var _content:Object = {};
         protected var _importFallbackPolicy:String = null; // "oob_fallback" or null
 
         // -----------------------
@@ -536,7 +536,7 @@ package com.github.ciacob.asshardlibrary {
                 _importFallbackPolicy = null;
             }
 
-            // Classes that override this method should call super.importFrom() first.
+            // Classes that override this method should call super.importFrom().
         }
 
         public function isSame(other:IShard):Boolean {
