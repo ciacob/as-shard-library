@@ -4,7 +4,16 @@ package com.github.ciacob.asshardlibrary {
 
     use namespace shard_internal;
 
+    /**
+     * Main concrete OOtB implementation of IShard.
+     * Built on top of AbstractShard, to which it adds JSON export/import capabilities.
+     * @see AbstractShard
+     * @see IShard
+     */
     public class Shard extends AbstractShard implements IShard {
+
+        public static const JSON_FORMAT : String = "JSON";
+
         public function Shard () {
             super();
         }
