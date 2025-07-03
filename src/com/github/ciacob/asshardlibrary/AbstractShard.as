@@ -202,6 +202,10 @@ package com.github.ciacob.asshardlibrary {
             return false; // default: can have children; override if needed
         }
 
+        public function get isReadonly():Boolean {
+            return false; // default: not readonly
+        }
+
         // ----------------
         // Content Mutation
         // ----------------
@@ -214,13 +218,25 @@ package com.github.ciacob.asshardlibrary {
         }
 
         public function $set(key:String, content:*):void {
-            if (content === undefined || typeof content === "object") {
+            if (isReadonly) {
+                trace(getQualifiedClassName(this), ' instance is readonly. Denied: $set');
+                return;
+            }
+            if (content === undefined) {
+                trace(getQualifiedClassName(this), ' instance does not allow `undefined` values. Denied: $set', key);
+                return;
+            }
+            if (typeof content === "object") {
                 throw new ArgumentError("Shard - $set(): Content must be a primitive (non-object), not undefined.");
             }
             _content[key] = content;
         }
 
         public function $delete(key:String):* {
+            if (isReadonly) {
+                trace(getQualifiedClassName(this), ' instance is readonly. Denied: $delete');
+                return undefined;
+            }
             if (!has(key)) {
                 return undefined;
             }
@@ -237,9 +253,20 @@ package com.github.ciacob.asshardlibrary {
         }
 
         public function addChildAt(child:IShard, atIndex:int):void {
+            // Check we're allowed to make changes
+            if (isReadonly) {
+                trace(getQualifiedClassName(this), ' instance is readonly. Denied: addChild[At]');
+                return;
+            }
 
-            // Check we're allowed to have children, and we have a valid child.
-            if (isFlat || child == null) {
+            // Check we're allowed to have children
+            if (isFlat) {
+                trace(getQualifiedClassName(this), ' instance is not allowed to have children. Denied: addChild[At]');
+                return;
+            }
+
+            // Check we have a valid child.
+            if (child == null) {
                 return;
             }
 
@@ -331,6 +358,23 @@ package com.github.ciacob.asshardlibrary {
         }
 
         public function deleteChild(child:IShard):Boolean {
+            // Check that we are allowed to make changes.
+            if (isReadonly) {
+                trace(getQualifiedClassName(this), ' instance is readonly. Denied: deleteChild[At]');
+                return false;
+            }
+
+            // Check that we were allowed to have children in the first place.
+            if (isFlat) {
+                trace(getQualifiedClassName(this), ' instance was not allowed to have children. Denied: deleteChild[At]');
+                return false;
+            }
+
+            // Check that we were given an actual child to delete.
+            if (child == null) {
+                return false;
+            }
+
             if (!unwireChild(child))
                 return false;
 
@@ -375,25 +419,45 @@ package com.github.ciacob.asshardlibrary {
         }
 
         public function empty():void {
+            // Check that we're allowed to make changes.
+            if (isReadonly) {
+                trace(getQualifiedClassName(this), ' instance is readonly. Denied: empty');
+                return;
+            }
+
             // Remove all content keys
             for (var key:String in _content) {
                 delete _content[key];
             }
 
-            // Detach all children
+            // Check that we were allowed to have children in the first place.
+            if (isFlat) {
+                trace(getQualifiedClassName(this), ' instance is not allowed to have children. Denied: empty');
+                return;
+            }
+
+            // Recursively detach and delete all children from the registry
             var current:IShard = firstChild;
             while (current) {
                 var next:IShard = current.next;
+
+                // Clear descendants recursively
+                AbstractShard(current).empty();
+
+                // Remove the child itself from the registry
+                delete registry[current.id];
+
+                // Unlink pointers
                 AbstractShard(current)._parentId = null;
                 AbstractShard(current)._prevId = null;
                 AbstractShard(current)._nextId = null;
+
                 current = next;
             }
 
+            // Reset linkage from this node
             _firstChildId = null;
             _lastChildId = null;
-
-            // TODO: actually remove the elements from the static registry?
         }
 
         public function findIndex():int {
@@ -520,6 +584,11 @@ package com.github.ciacob.asshardlibrary {
         }
 
         public function importFrom(content:*, format:String = null, ... helpers):void {
+            if (isReadonly) {
+                trace(getQualifiedClassName(this), ' instance is readonly. Denied: importFrom');
+                return;
+            }
+
             empty();
 
             if (!format && content is ByteArray) {

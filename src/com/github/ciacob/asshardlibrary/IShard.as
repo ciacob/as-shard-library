@@ -70,6 +70,11 @@ package com.github.ciacob.asshardlibrary {
          */
         function get isFlat():Boolean;
 
+        /**
+         * Whether <this> element is read-only (no mutation allowed).
+         */
+        function get isReadonly():Boolean;
+
         // -------
         // Methods
         // -------
