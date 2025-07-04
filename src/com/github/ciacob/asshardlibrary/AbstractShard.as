@@ -55,9 +55,6 @@ package com.github.ciacob.asshardlibrary {
             // Fully qualified name
             result.push(['fqn', getQualifiedClassName(this)]);
 
-            // Intrinsic
-            result.push(['intrinsic', ['isFlat', isFlat]]);
-
             // Content (sorted)
             const keys:Array = [];
             for (var k:String in _content)
@@ -91,9 +88,6 @@ package com.github.ciacob.asshardlibrary {
 
             for each (section in data) {
                 switch (section[0]) {
-                    case 'intrinsic':
-                        // Skip — isFlat is read-only at runtime.
-                        break;
 
                     case 'content':
                         contentBlock = section[1];

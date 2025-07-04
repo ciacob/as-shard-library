@@ -193,6 +193,9 @@ package com.github.ciacob.asshardlibrary {
         function clone(deep:Boolean = false):IShard;
 
         /**
+         * The base implementation does not retain the `isReadonly` and `isFlat` settings in the
+         * serialized format. Implement custom serialization or export if you need these.
+         * 
          * Produces a ByteArray version of <this> element. The resulting ByteArray can be
          * imported back via `myElement.importFrom(myByteArray)`.
          */
