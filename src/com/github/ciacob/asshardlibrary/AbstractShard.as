@@ -8,11 +8,24 @@ package com.github.ciacob.asshardlibrary {
     public class AbstractShard implements IShard {
 
         /**
-         * String to use with the third argument of `importFrom()` to indicate that
-         * the import should fall back to the OOtB `Shard` class if any of the
-         * sub-classes being imported are not available.
+         * Optional fallback strategy for `importFrom()` when the original class used during
+         * serialization is not available at runtime.
+         *
+         * Usage:
+         *     myShard.importFrom(bytes, null, AbstractShard.OOB_FALLBACK);
+         *
+         * If this string constant is passed as the third argument to `importFrom()`, and
+         * the deserializer encounters a class it cannot resolve (e.g., an internal subclass),
+         * it will silently fall back to instantiating the base `Shard` class instead.
+         *
+         * This is useful when deserializing generic or internal structures that do not need
+         * to retain custom subclass behavior beyond structure and content.
+         *
+         * WARNING: This fallback skips class fidelity and may not replicate specialized behavior
+         * (e.g., overridden getters, metadata enforcement). Use only when such behavior is
+         * unnecessary or can be reapplied afterward.
          */
-        protected static const OOB_FALLBACK:String = "oob_fallback";
+        public static const OOB_FALLBACK:String = "oob_fallback";
 
         /**
          * Generates a v4-style UUID.
