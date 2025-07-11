@@ -59,14 +59,16 @@ package com.github.ciacob.asshardlibrary {
 
         shard_internal var _content:Object = {};
 
-        shard_internal function toPortableObject():Array {
+        shard_internal function toPortableObject(useBaseClass:Boolean = false):Array {
             const result:Array = [];
 
             // Version
             result.push(['version', formatVersion]);
 
             // Fully qualified name
-            result.push(['fqn', getQualifiedClassName(this)]);
+            result.push(['fqn', useBaseClass ?
+                getQualifiedClassName(AbstractShard) : 
+                getQualifiedClassName(this)]);
 
             // Content (sorted)
             const keys:Array = [];
@@ -84,7 +86,7 @@ package com.github.ciacob.asshardlibrary {
             const children:Array = [];
             var current:IShard = firstChild;
             while (current) {
-                children.push(AbstractShard(current).toPortableObject());
+                children.push(AbstractShard(current).toPortableObject(useBaseClass));
                 current = current.next;
             }
             result.push(['children', children]);
@@ -583,9 +585,9 @@ package com.github.ciacob.asshardlibrary {
             return copy;
         }
 
-        public function toSerialized():ByteArray {
+        public function toSerialized(useBaseClass:Boolean = false):ByteArray {
             const b:ByteArray = new ByteArray();
-            b.writeObject(toPortableObject());
+            b.writeObject(toPortableObject(useBaseClass));
             b.compress();
             return b;
         }

@@ -198,8 +198,18 @@ package com.github.ciacob.asshardlibrary {
          * 
          * Produces a ByteArray version of <this> element. The resulting ByteArray can be
          * imported back via `myElement.importFrom(myByteArray)`.
+         * 
+         * @param useBaseClass - Optional, default `false`. If given, replaces FQN information
+         *        within the resulting ByteArray with that of the main implementor. This is
+         *        useful in scenarios where structure identity must lead to byte identity,
+         *        regardless of actual implementor used, e.g., for hashing.
+         * 
+         *        NOTE: Using useBaseClass=true ensures class identity in serialization,
+         *        but does not neutralize subclass behavior. If a subclass modifies content
+         *        or structure during construction, byte-level identity cannot be guaranteed,
+         *        even with useBaseClass=true.
          */
-        function toSerialized():ByteArray;
+        function toSerialized(useBaseClass : Boolean = false):ByteArray;
 
         /**
          * The base implementation does not provide an implementation of this method.
